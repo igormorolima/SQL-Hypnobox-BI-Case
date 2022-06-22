@@ -1,0 +1,57 @@
+1) Quantas visitas são realizadas por mês em cada produto?
+
+SELECT p.nome, MONTH (v.data_visita) AS mes, COUNT (ISNULL (s.status, 0))
+FROM Produto p
+LEFT JOIN Visita v
+ON p.id_produto = v.id_produto
+LEFT JOIN Status_visita s
+ON s.status_visita = v.status_visita
+WHERE s.status = 'realizada'
+GROUP BY p.nome, mes
+ORDER BY mes
+
+2) Qual a taxa de conversão de visita (%) por produto?
+
+SELECT p.nome, Realizado * 100 / Total AS conversao(%)
+FROM (
+    SELECT
+    COUNT (s.status) AS Realizado,
+    COUNT (s.status) AS Total
+    FROM Produto p
+    WHERE status = 'realizada'
+    LEFT JOIN Visita v
+    ON p.id_produto = v.id_produto
+    LEFT JOIN Status_visita s
+    ON s.status_visita = v.status_visita )
+GROUP BY p.nome
+ORDER BY conversao(%) DESC
+
+3) Para atribuir uma mídia a uma visita, consideramos qual foi o primeiro contato realizado daquele cliente nos últimos 120 dias anterior à data da visita. Quais os canais de mídia que geram mais visitas?
+
+WITH primeira_midia AS (
+    SELECT
+        contato.id_cliente,
+        visita.id_visita,
+        contato.data_contato,
+        visita.data_visita,
+        midia.nome AS nome_midia,
+        ROW_NUMBER() OVER (PARTITION BY contato.id_cliente, visita.id_visita ORDER BY contato.data_contato) AS num_linha
+    FROM
+        contato
+    LEFT JOIN
+        midia
+                ON contato.id_midia = midia.id_midia
+    LEFT JOIN
+        visita
+                ON contato.id_cliente = visita.id_cliente
+    WHERE
+        contato.data_contato >= visita.data_visita - 120)
+SELECT
+   	nome_midia,
+   	COUNT(*) AS qty_leads
+FROM
+   	primeira_midia
+WHERE
+   	num_linha = 1
+ORDER BY
+qty_leads DESC
